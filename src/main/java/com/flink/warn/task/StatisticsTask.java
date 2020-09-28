@@ -6,7 +6,7 @@ import com.flink.warn.CustomWarnWindowAssigner;
 import com.flink.warn.FlowSumAggregateFunction;
 import com.flink.warn.WarnCountAggregateFunction;
 import com.flink.warn.config.PropertiesConfig;
-import com.flink.warn.config.WarnRuleConfig;
+import com.flink.warn.config.WarnPolicyConfig;
 import com.flink.warn.entiy.*;
 import com.flink.warn.sink.WorkListToMongodbSink;
 import com.flink.warn.util.DateUtil;
@@ -123,10 +123,10 @@ public class StatisticsTask {
                     public void process(Tuple tuple, Context context, Iterable<Tuple2<Long, Long>> elements, Collector<Warn> out) throws Exception {
 
                         String logType = tuple.getField(2).toString();
-                        WarnRule warnRule = WarnRuleConfig.getWarnRule(logType);
+                        WarnPolicy warnPolicy = WarnPolicyConfig.getWarnPolicy(logType);
 
                         Tuple2<Long, Long> next = elements.iterator().next();
-                        if (warnRule.getCount() > next.f1) {
+                        if (warnPolicy.getCount() > next.f1) {
                             return;
                         }
                         Warn warn = new Warn();
@@ -158,11 +158,11 @@ public class StatisticsTask {
                         if(Objects.nonNull(tuple.getField(7))){
                             warn.setDstPort(Integer.parseInt(tuple.getField(7).toString()));
                         }
-                        warn.setLevel(warnRule.getLevel());
+                        warn.setLevel(warnPolicy.getLevel());
                         warn.setHandleStatus(0);
-                        warn.setWarnRuleId(warnRule.getId());
-                        warn.setWarnType(warnRule.getWarnType());
-                        warn.setWarnName(warnRule.getWarnName());
+                        warn.setWarnRuleId(warnPolicy.getId());
+                        warn.setWarnType(warnPolicy.getWarnType());
+                        warn.setWarnName(warnPolicy.getWarnName());
                         warn.setCount(next.f1);
                         warn.setMark(UUID.randomUUID().toString());
                         System.out.println(warn.toString());
@@ -352,7 +352,7 @@ public class StatisticsTask {
                             out.collect(value);
                         }
 
-                        if (WarnRuleConfig.getWarnRule(value.getLogType()) != null) {
+                        if (WarnPolicyConfig.getWarnPolicy(value.getLogType()) != null) {
                             ctx.output(outputWarnTag, value);
                         }
                     }

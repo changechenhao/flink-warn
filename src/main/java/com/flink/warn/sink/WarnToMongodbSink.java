@@ -40,7 +40,6 @@ public class WarnToMongodbSink  extends RichSinkFunction<Warn> {
 
     @Override
     public void invoke(Warn value, Context context) throws Exception {
-
         collection.insert(value);
     }
 }

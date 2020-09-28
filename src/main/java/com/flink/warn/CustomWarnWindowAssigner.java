@@ -1,8 +1,8 @@
 package com.flink.warn;
 
-import com.flink.warn.config.WarnRuleConfig;
+import com.flink.warn.config.WarnPolicyConfig;
 import com.flink.warn.entiy.OriginalEvent;
-import com.flink.warn.entiy.WarnRule;
+import com.flink.warn.entiy.WarnPolicy;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -30,10 +30,10 @@ public class CustomWarnWindowAssigner extends WindowAssigner<OriginalEvent, Time
 
     @Override
     public Collection<TimeWindow> assignWindows(OriginalEvent element, long timestamp, WindowAssignerContext context) {
-        WarnRule warnRule = WarnRuleConfig.getWarnRule(element.getLogType());
+        WarnPolicy warnPolicy = WarnPolicyConfig.getWarnPolicy(element.getLogType());
         List<TimeWindow> windows = new ArrayList<>();
-        if(Objects.nonNull(warnRule)){
-            int size = warnRule.getTime() * 1000;
+        if(Objects.nonNull(warnPolicy)){
+            int size = warnPolicy.getTime() * 1000;
             long lastStart = TimeWindow.getWindowStartWithOffset(timestamp, 0, slide);
             for (long start = lastStart;
                  start > timestamp - size;
