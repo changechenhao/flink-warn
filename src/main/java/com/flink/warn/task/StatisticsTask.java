@@ -40,6 +40,10 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.script.Invocable;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Properties;
@@ -114,7 +118,8 @@ public class StatisticsTask {
 
     private static void warnTask(int slid, SingleOutputStreamOperator<OriginalEvent> mainDataStream) {
         DataStream<OriginalEvent> sideOutput = mainDataStream.getSideOutput(outputWarnTag);
-        SingleOutputStreamOperator<Warn> streamOperator = sideOutput.keyBy("srcIp", "deviceIp", "logType", "dstIp", "dstMac", "protocol", "srcPort", "dstPort")
+        SingleOutputStreamOperator<Warn> streamOperator = sideOutput
+                .keyBy("srcIp", "deviceIp", "logType", "dstIp", "dstMac", "protocol", "srcPort", "dstPort")
                 .window(new CustomWarnWindowAssigner(slid))
                 .trigger(CustomEventTimeTrigger.create())
                 .aggregate(new WarnCountAggregateFunction(), new ProcessWindowFunction<Tuple2<Long, Long>, Warn, Tuple, TimeWindow>() {
@@ -315,6 +320,7 @@ public class StatisticsTask {
                             .index("flow")  //es 索引名
                             .source(JSONObject.toJSONBytes(fwFlow), XContentType.JSON));
                 });
+
     }
 
     private static SingleOutputStreamOperator<OriginalEvent> getMainDataStream(PropertiesConfig config, StreamExecutionEnvironment env, Properties props, long maxWatermarkLag) {
@@ -360,6 +366,17 @@ public class StatisticsTask {
                 }).name("side-output");
     }
 
+
+    public void getP() throws ScriptException, NoSuchMethodException {
+        String script="def getP(){return Pattern.<>....within(Time.seconds(3)))}";
+        ScriptEngineManager factory = new ScriptEngineManager();
+        ScriptEngine engine =  factory.getEngineByName("groovy");
+        engine.eval(script);
+        Invocable inv = (Invocable) engine;
+        /*Pattern<LoginEvent, LoginEvent> pattern
+                = (Pattern<LoginEvent, LoginEvent>) inv.invokeFunction("getP");*/
+    }
+
     private static class CountAggregateFunction implements AggregateFunction<OriginalEvent, Long, Long> {
 
 
@@ -383,6 +400,10 @@ public class StatisticsTask {
             return a + b;
         }
     }
+
+
+
+
 
     private static Properties buildKafkaProperties(PropertiesConfig config) {
         Properties props = new Properties();
