@@ -16,8 +16,9 @@
  * limitations under the License.
  */
 
-package com.flink.warn.dynamicrules;
+package com.flink.warn.dynamicrules.entity;
 
+import com.flink.warn.dynamicrules.TimestampAssignable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

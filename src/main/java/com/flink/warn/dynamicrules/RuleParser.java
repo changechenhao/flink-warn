@@ -18,6 +18,7 @@
 
 package com.flink.warn.dynamicrules;
 
+import com.flink.warn.dynamicrules.entity.WarnRule;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;

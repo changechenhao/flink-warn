@@ -18,7 +18,7 @@
 
 package com.flink.warn.dynamicrules.functions;
 
-import com.flink.warn.dynamicrules.WarnRule;
+import com.flink.warn.dynamicrules.entity.WarnRule;
 import com.flink.warn.dynamicrules.RuleParser;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.configuration.Configuration;

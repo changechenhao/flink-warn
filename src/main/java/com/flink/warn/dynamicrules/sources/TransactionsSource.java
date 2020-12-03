@@ -21,7 +21,7 @@ package com.flink.warn.dynamicrules.sources;
 import com.alibaba.fastjson.JSONObject;
 import com.flink.warn.config.Config;
 import com.flink.warn.dynamicrules.KafkaUtils;
-import com.flink.warn.dynamicrules.Transaction;
+import com.flink.warn.dynamicrules.entity.Transaction;
 import com.flink.warn.dynamicrules.functions.JSONObjectGenerator;
 import com.flink.warn.dynamicrules.functions.JsonDeserializer;
 import com.flink.warn.dynamicrules.functions.TimeStamper;
@@ -80,7 +80,6 @@ public class TransactionsSource {
               }
             })
             .returns(JSONObject.class)
-
             .name("Transactions Deserialization");
   }
 

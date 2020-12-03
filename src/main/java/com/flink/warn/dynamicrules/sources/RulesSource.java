@@ -20,7 +20,8 @@ package com.flink.warn.dynamicrules.sources;
 
 import com.flink.warn.config.Config;
 import com.flink.warn.dynamicrules.KafkaUtils;
-import com.flink.warn.dynamicrules.WarnRule;
+import com.flink.warn.dynamicrules.entity.WarnRule;
+import com.flink.warn.dynamicrules.functions.MongoDBStreamFunction;
 import com.flink.warn.dynamicrules.functions.RuleDeserializer;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -53,12 +54,6 @@ public class RulesSource {
             new FlinkKafkaConsumer010<>(rulesTopic, new SimpleStringSchema(), kafkaProps);
         kafkaConsumer.setStartFromLatest();
         return kafkaConsumer;
-      case MONGODB:
-        /*return PubSubSource.<String>newBuilder()
-            .withDeserializationSchema(new SimpleStringSchema())
-            .withProjectName(config.get(GCP_PROJECT_NAME))
-            .withSubscriptionName(config.get(GCP_PUBSUB_RULES_SUBSCRIPTION))
-            .build();*/
       case SOCKET:
         return new SocketTextStreamFunction("localhost", config.get(SOCKET_PORT), "\n", -1);
       default:

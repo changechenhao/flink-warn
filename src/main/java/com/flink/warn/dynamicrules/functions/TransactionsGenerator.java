@@ -18,7 +18,7 @@
 
 package com.flink.warn.dynamicrules.functions;
 
-import com.flink.warn.dynamicrules.Transaction;
+import com.flink.warn.dynamicrules.entity.Transaction;
 import com.flink.warn.sources.BaseGenerator;
 
 import java.math.BigDecimal;

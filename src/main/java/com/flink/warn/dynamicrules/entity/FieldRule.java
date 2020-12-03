@@ -1,4 +1,4 @@
-package com.flink.warn.dynamicrules;
+package com.flink.warn.dynamicrules.entity;
 
 import com.alibaba.fastjson.JSONObject;
 import lombok.Data;

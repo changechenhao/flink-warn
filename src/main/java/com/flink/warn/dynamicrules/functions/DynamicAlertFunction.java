@@ -18,7 +18,12 @@
 
 package com.flink.warn.dynamicrules.functions;
 
-import com.flink.warn.dynamicrules.*;
+import com.alibaba.fastjson.JSONObject;
+import com.flink.warn.dynamicrules.RuleHelper;
+import com.flink.warn.dynamicrules.RulesEvaluator;
+import com.flink.warn.dynamicrules.entity.Keyed;
+import com.flink.warn.dynamicrules.entity.WarnRule;
+import com.flink.warn.entiy.WorkList;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flink.api.common.accumulators.SimpleAccumulator;
 import org.apache.flink.api.common.state.BroadcastState;
@@ -38,7 +43,9 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
+import static com.flink.warn.dynamicrules.RulesEvaluator.Descriptors.workListTag;
 import static com.flink.warn.dynamicrules.functions.ProcessingUtils.addToStateValuesSet;
 import static com.flink.warn.dynamicrules.functions.ProcessingUtils.handleRuleBroadcast;
 
@@ -47,85 +54,84 @@ import static com.flink.warn.dynamicrules.functions.ProcessingUtils.handleRuleBr
 @Slf4j
 public class DynamicAlertFunction
     extends KeyedBroadcastProcessFunction<
-        String, Keyed<Transaction, String, String>, WarnRule, Alert> {
+        String, Keyed<JSONObject, String, String>, WarnRule, JSONObject> {
 
   private static final String COUNT = "COUNT_FLINK";
   private static final String COUNT_WITH_RESET = "COUNT_WITH_RESET_FLINK";
 
-  private static int WIDEST_RULE_KEY = Integer.MIN_VALUE;
-  private static int CLEAR_STATE_COMMAND_KEY = Integer.MIN_VALUE + 1;
+//  private static int WIDEST_RULE_KEY = Integer.MIN_VALUE;
+//  private static int CLEAR_STATE_COMMAND_KEY = Integer.MIN_VALUE + 1;
 
-  private transient MapState<Long, Set<Transaction>> windowState;
+  private transient MapState<Long, Set<BigDecimal>> windowState;
+
+
   private Meter alertMeter;
 
-  private String ruleId;
-
-  private MapStateDescriptor<Long, Set<Transaction>> windowStateDescriptor =
+  private MapStateDescriptor<Long, Set<BigDecimal>> windowStateDescriptor =
       new MapStateDescriptor<>(
           "windowState",
           BasicTypeInfo.LONG_TYPE_INFO,
-          TypeInformation.of(new TypeHint<Set<Transaction>>() {}));
+          TypeInformation.of(new TypeHint<Set<BigDecimal>>() {}));
+
+  private String ruleId;
+
+  private JSONObject result;
 
   @Override
   public void open(Configuration parameters) {
-
     windowState = getRuntimeContext().getMapState(windowStateDescriptor);
-
     alertMeter = new MeterView(60);
     getRuntimeContext().getMetricGroup().meter("alertsPerSecond", alertMeter);
   }
 
   @Override
   public void processElement(
-      Keyed<Transaction, String, String> value, ReadOnlyContext ctx, Collector<Alert> out)
+      Keyed<JSONObject, String, String> value, ReadOnlyContext ctx, Collector<JSONObject> out)
       throws Exception {
-    long currentEventTime = value.getWrapped().getEventTime();
-    addToStateValuesSet(windowState, currentEventTime, value.getWrapped());
-
-    long ingestionTime = value.getWrapped().getIngestionTimestamp();
-    ctx.output(RulesEvaluator.Descriptors.latencySinkTag, System.currentTimeMillis() - ingestionTime);
+    ctx.output(RulesEvaluator.Descriptors.allRuleEvaluationsTag, value.getKey());
+    Long startTime = value.getStartTime();
+    BigDecimal aggregateValue = value.getAggregateValue() == null ? BigDecimal.ONE
+            : new BigDecimal(value.getAggregateValue());
+    addToStateValuesSet(windowState, startTime, aggregateValue);
 
     WarnRule warnRule = ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor).get(value.getId());
-    if(ruleId == null){
-      ruleId = warnRule.getRuleId();
-    }
     if (noRuleAvailable(warnRule)) {
       return;
     }
 
-    if (warnRule.getRuleState() == WarnRule.RuleState.ACTIVE) {
-      Long windowStartForEvent = warnRule.getWindowStartFor(currentEventTime);
+    if(ruleId == null){
+      ruleId = warnRule.getRuleId();
+    }
 
-      long cleanupTime = (currentEventTime / 1000) * 1000;
+    if(result == null){
+      result = value.getWrapped();
+    }
+
+    if (warnRule.getRuleState() == WarnRule.RuleState.ACTIVE) {
+//      Long windowStartForEvent = warnRule.getWindowStartFor(startTime);
+      long cleanupTime = (startTime / 1000) * 1000 + warnRule.getWindowMillis();
       ctx.timerService().registerEventTimeTimer(cleanupTime);
 
-      SimpleAccumulator<BigDecimal> aggregator = RuleHelper.getAggregator(warnRule);
+      /*SimpleAccumulator<BigDecimal> aggregator = RuleHelper.getAggregator(warnRule);
       for (Long stateEventTime : windowState.keys()) {
-        if (isStateValueInWindow(stateEventTime, windowStartForEvent, currentEventTime)) {
+        if (isStateValueInWindow(stateEventTime, windowStartForEvent, startTime)) {
           aggregateValuesInState(stateEventTime, aggregator, warnRule);
         }
       }
-
       BigDecimal aggregateResult = aggregator.getLocalValue();
       boolean ruleResult = warnRule.apply(aggregateResult);
-
-      ctx.output(
-          RulesEvaluator.Descriptors.demoSinkTag, this.toString() + "-KEY="+value.getKey());
 
       if (ruleResult) {
         if (COUNT_WITH_RESET.equals(warnRule.getAggregateFieldName())) {
           evictAllStateElements();
         }
         alertMeter.markEvent();
-        out.collect(
-            new Alert<>(
-                warnRule.getRuleId(), warnRule, value.getKey(), value.getWrapped(), aggregateResult));
-      }
+      }*/
     }
   }
 
   @Override
-  public void processBroadcastElement(WarnRule warnRule, Context ctx, Collector<Alert> out)
+  public void processBroadcastElement(WarnRule warnRule, Context ctx, Collector<JSONObject> out)
       throws Exception {
     BroadcastState<String, WarnRule> broadcastState =
         ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor);
@@ -168,17 +174,13 @@ public class DynamicAlertFunction
 
   private void aggregateValuesInState(
       Long stateEventTime, SimpleAccumulator<BigDecimal> aggregator, WarnRule warnRule) throws Exception {
-    Set<Transaction> inWindow = windowState.get(stateEventTime);
+    Set<BigDecimal> inWindow = windowState.get(stateEventTime);
     if (COUNT.equals(warnRule.getAggregateFieldName())
         || COUNT_WITH_RESET.equals(warnRule.getAggregateFieldName())) {
-      for (Transaction event : inWindow) {
-        aggregator.add(BigDecimal.ONE);
-      }
+      aggregator.add(new BigDecimal(inWindow.size()));
     } else {
-      for (Transaction event : inWindow) {
-        BigDecimal aggregatedValue =
-            FieldsExtractor.getBigDecimalByName(warnRule.getAggregateFieldName(), event);
-        aggregator.add(aggregatedValue);
+      for (BigDecimal value : inWindow) {
+        aggregator.add(value);
       }
     }
   }
@@ -189,12 +191,12 @@ public class DynamicAlertFunction
     if (warnRule == null) {
       return true;
     }
-    return false;
+    return warnRule == null;
   }
 
   private void updateWidestWindowRule(WarnRule warnRule, BroadcastState<String, WarnRule> broadcastState)
       throws Exception {
-    /*WarnRule widestWindowRule = broadcastState.get(WIDEST_RULE_KEY);
+  /*  WarnRule widestWindowRule = broadcastState.get(WIDEST_RULE_KEY);
     if (widestWindowRule == null) {
       broadcastState.put(WIDEST_RULE_KEY, warnRule);
       return;
@@ -207,15 +209,48 @@ public class DynamicAlertFunction
   }
 
   @Override
-  public void onTimer(final long timestamp, final OnTimerContext ctx, final Collector<Alert> out)
+  public void onTimer(final long timestamp, final OnTimerContext ctx, final Collector<JSONObject> out)
       throws Exception {
-    WarnRule widestWindowWarnRule = ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor).get(ruleId);
+
+    WarnRule warnRule = ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor).get(ruleId);
+
     Optional<Long> cleanupEventTimeWindow =
-        Optional.ofNullable(widestWindowWarnRule).map(WarnRule::getWindowMillis);
-    Optional<Long> cleanupEventTimeThreshold =
+        Optional.ofNullable(warnRule).map(WarnRule::getWindowMillis);
+    Optional<Long> windowStartTime =
         cleanupEventTimeWindow.map(window -> timestamp - window);
 
-    cleanupEventTimeThreshold.ifPresent(this::evictAgedElementsFromWindow);
+    SimpleAccumulator<BigDecimal> aggregator = RuleHelper.getAggregator(warnRule);
+    for (Long stateEventTime : windowState.keys()) {
+      if (isStateValueInWindow(stateEventTime, windowStartTime.get(), timestamp)) {
+        aggregateValuesInState(stateEventTime, aggregator, warnRule);
+      }
+    }
+    BigDecimal aggregateResult = aggregator.getLocalValue();
+    boolean ruleResult = warnRule.apply(aggregateResult);
+
+    if(ruleResult){
+      JSONObject jsonObject = new JSONObject();
+      jsonObject.put("startTime", windowStartTime.get());
+      jsonObject.put("endTime", timestamp);
+      jsonObject.put("count", aggregateResult.toString());
+      String mark = UUID.randomUUID().toString();
+      jsonObject.put("mark", mark);
+      result.entrySet().stream().forEach(item -> {
+        jsonObject.put(item.getKey(), item.getValue());
+      });
+
+      WorkList workList = new WorkList();
+      workList.setMark(mark);
+      workList.setCreateTime(System.currentTimeMillis());
+      workList.setWarnName(warnRule.getWarnName());
+      workList.setWarnType(warnRule.getWarnType());
+      workList.setLevel(warnRule.getLevel());
+      workList.setStatus(0);
+      ctx.output(workListTag, workList);
+      out.collect(jsonObject);
+    }
+
+    windowStartTime.ifPresent(this::evictAgedElementsFromWindow);
   }
 
   private void evictAgedElementsFromWindow(Long threshold) {
@@ -231,7 +266,6 @@ public class DynamicAlertFunction
       throw new RuntimeException(ex);
     }
   }
-
 
   private void evictAllStateElements() {
     try {

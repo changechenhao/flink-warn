@@ -18,7 +18,7 @@
 
 package com.flink.warn.dynamicrules.functions;
 
-import com.flink.warn.dynamicrules.WarnRule;
+import com.flink.warn.dynamicrules.entity.WarnRule;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapState;
 

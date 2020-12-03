@@ -22,6 +22,7 @@ import com.flink.warn.dynamicrules.accumulators.AverageAccumulator;
 import com.flink.warn.dynamicrules.accumulators.BigDecimalCounter;
 import com.flink.warn.dynamicrules.accumulators.BigDecimalMaximum;
 import com.flink.warn.dynamicrules.accumulators.BigDecimalMinimum;
+import com.flink.warn.dynamicrules.entity.WarnRule;
 import org.apache.flink.api.common.accumulators.SimpleAccumulator;
 
 import java.math.BigDecimal;

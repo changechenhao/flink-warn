@@ -16,12 +16,14 @@
  * limitations under the License.
  */
 
-package com.flink.warn.dynamicrules;
+package com.flink.warn.dynamicrules.entity;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.apache.flink.api.common.time.Time;
+import org.jongo.marshall.jackson.oid.MongoId;
+import org.jongo.marshall.jackson.oid.MongoObjectId;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,8 +34,12 @@ import java.util.List;
 @Data
 public class WarnRule {
 
+  @MongoId
+  @MongoObjectId
   private String ruleId;
+  private String warnType;
   private String warnName;
+  private Integer level;
   private RuleState ruleState;
   private List<String> groupingKeyNames;
   private List<String> defaultGroupingKeyNames;

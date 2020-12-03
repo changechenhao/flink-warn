@@ -19,7 +19,7 @@
 package com.flink.warn.dynamicrules.sinks;
 
 import com.flink.warn.config.Config;
-import com.flink.warn.dynamicrules.Alert;
+import com.flink.warn.dynamicrules.entity.Alert;
 import com.flink.warn.dynamicrules.KafkaUtils;
 import com.flink.warn.dynamicrules.functions.JsonSerializer;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;

@@ -45,6 +45,7 @@ public class KafkaUtils {
     int kafkaPort = config.get(KAFKA_PORT);
     String servers = String.format("%s:%s", kafkaHost, kafkaPort);
     kafkaProps.setProperty("bootstrap.servers", servers);
+    kafkaProps.setProperty("bootstrap.servers", servers);
     return kafkaProps;
   }
 }

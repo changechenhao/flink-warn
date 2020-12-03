@@ -1,4 +1,4 @@
-package com.flink.warn.entiy;
+package com.flink.warn.dynamicrules.entity;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -33,17 +33,13 @@ public class EventStatistics {
 
     private String deviceIp;
 
-    private String deviceType;
-
-    private String deviceMode;
-
     private String logType;
 
     private String eventType;
 
-    private String eventName;
+    private String eventSubType;
 
-    private String attackType;
+    private String eventName;
 
     private long count;
 

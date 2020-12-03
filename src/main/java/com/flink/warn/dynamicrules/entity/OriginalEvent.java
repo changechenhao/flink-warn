@@ -1,15 +1,15 @@
-package com.flink.warn.entiy;
+package com.flink.warn.dynamicrules.entity;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
  * @Author : chenhao
- * @Date : 2020/8/17 0017 16:13
+ * @Date : 2020/8/6 0006 19:05
  */
 @Data
 @NoArgsConstructor
-public class EventStatistics {
+public class OriginalEvent {
 
     private String srcIp;
 
@@ -33,25 +33,18 @@ public class EventStatistics {
 
     private String deviceIp;
 
-    private String deviceType;
-
-    private String deviceMode;
-
     private String logType;
 
     private String eventType;
 
+    private String eventSubType;
+
     private String eventName;
 
-    private String attackType;
+    private Long startTime;
 
-    private long count;
+    private Long endTime;
 
-    private String startTime;
-
-    private String endTime;
-
-    private String createTime;
-
+    private Long receiveTime;
 
 }
