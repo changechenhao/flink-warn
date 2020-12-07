@@ -77,7 +77,7 @@ public class RulesEvaluator {
 
     private static final String[] keyByFields = {"srcIp", "dstIp", "srcPort", "dstPort", "srcCountry", "dstCountry"
             , "srcProProvince", "dstProProvince", "srcCity", "dstCity", "deviceIp", "logType", "eventType"
-            , "eventSubType", "eventName", "level", "protocol"};
+            , "eventSubType", "eventName", "level", "protocol", "assetType", "assetSubType"};
 
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 

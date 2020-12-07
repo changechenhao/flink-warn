@@ -8,7 +8,6 @@ import com.flink.warn.WarnCountAggregateFunction;
 import com.flink.warn.config.PropertiesConfig;
 import com.flink.warn.config.WarnPolicyConfig;
 import com.flink.warn.entiy.*;
-import com.flink.warn.sink.WorkListToMongodbSink;
 import com.flink.warn.util.DateUtil;
 import com.flink.warn.util.ElasticSearchSinkUtil;
 import org.apache.flink.api.common.functions.AggregateFunction;
@@ -185,10 +184,10 @@ public class StatisticsTask {
                 });
 
 
-        streamOperator.getSideOutput(workListFlowTag)
+        /*streamOperator.getSideOutput(workListFlowTag)
                 .addSink(new WorkListToMongodbSink())
                 .name("work_list");
-
+*/
 
     }
 
