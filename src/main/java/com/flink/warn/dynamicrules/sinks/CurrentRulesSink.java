@@ -20,7 +20,7 @@ package com.flink.warn.dynamicrules.sinks;
 
 import com.flink.warn.config.Config;
 import com.flink.warn.dynamicrules.KafkaUtils;
-import com.flink.warn.dynamicrules.Rule;
+import com.flink.warn.dynamicrules.WarnRule;
 import com.flink.warn.dynamicrules.functions.JsonSerializer;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -62,8 +62,8 @@ public class CurrentRulesSink {
     }
   }
 
-  public static DataStream<String> rulesStreamToJson(DataStream<Rule> alerts) {
-    return alerts.flatMap(new JsonSerializer<>(Rule.class)).name("Rules Deserialization");
+  public static DataStream<String> rulesStreamToJson(DataStream<WarnRule> alerts) {
+    return alerts.flatMap(new JsonSerializer<>(WarnRule.class)).name("Rules Deserialization");
   }
 
   public enum Type {

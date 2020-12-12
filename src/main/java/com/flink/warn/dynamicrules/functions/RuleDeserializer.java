@@ -18,13 +18,13 @@
 
 package com.flink.warn.dynamicrules.functions;
 
-import com.flink.warn.dynamicrules.Rule;
+import com.flink.warn.dynamicrules.WarnRule;
 import com.flink.warn.dynamicrules.RuleParser;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.Collector;
 
-public class RuleDeserializer extends RichFlatMapFunction<String, Rule> {
+public class RuleDeserializer extends RichFlatMapFunction<String, WarnRule> {
 
   private RuleParser ruleParser;
 
@@ -35,13 +35,13 @@ public class RuleDeserializer extends RichFlatMapFunction<String, Rule> {
   }
 
   @Override
-  public void flatMap(String value, Collector<Rule> out) throws Exception {
+  public void flatMap(String value, Collector<WarnRule> out) throws Exception {
     try {
-      Rule rule = ruleParser.fromString(value);
-      if (rule.getRuleState() != Rule.RuleState.CONTROL && rule.getRuleId() == null) {
-        throw new NullPointerException("ruleId cannot be null: " + rule.toString());
+      WarnRule warnRule = ruleParser.fromString(value);
+      if (warnRule.getRuleState() != WarnRule.RuleState.CONTROL && warnRule.getRuleId() == null) {
+        throw new NullPointerException("ruleId cannot be null: " + warnRule.toString());
       }
-      out.collect(rule);
+      out.collect(warnRule);
     } catch (Exception e) {
     }
   }

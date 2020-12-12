@@ -36,7 +36,7 @@ import static com.flink.warn.dynamicrules.functions.ProcessingUtils.handleRuleBr
 /** Implements dynamic data partitioning based on a set of broadcasted rules. */
 @Slf4j
 public class DynamicKeyFunction
-    extends BroadcastProcessFunction<Transaction, Rule, Keyed<Transaction, String, String>> {
+    extends BroadcastProcessFunction<Transaction, WarnRule, Keyed<Transaction, String, String>> {
 
   private RuleCounterGauge ruleCounterGauge;
 
@@ -50,21 +50,21 @@ public class DynamicKeyFunction
   public void processElement(
       Transaction event, ReadOnlyContext ctx, Collector<Keyed<Transaction, String, String>> out)
       throws Exception {
-    ReadOnlyBroadcastState<String, Rule> rulesState =
+    ReadOnlyBroadcastState<String, WarnRule> rulesState =
         ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor);
-    forkEventForEachGroupingKey(event, rulesState, out);
+    forkEventForEachGroupingKey(event, rulesState, out, ctx);
   }
 
   private void forkEventForEachGroupingKey(
       Transaction event,
-      ReadOnlyBroadcastState<String, Rule> rulesState,
-      Collector<Keyed<Transaction, String, String>> out)
+      ReadOnlyBroadcastState<String, WarnRule> rulesState,
+      Collector<Keyed<Transaction, String, String>> out, ReadOnlyContext ctx)
       throws Exception {
     int ruleCounter = 0;
-    for (Entry<String, Rule> entry : rulesState.immutableEntries()) {
-      final Rule rule = entry.getValue();
-      Keyed keyed = new Keyed(
-              event, KeysExtractor.getKey(rule.getGroupingKeyNames(), event, rule.getRuleId()), rule.getRuleId());
+    for (Entry<String, WarnRule> entry : rulesState.immutableEntries()) {
+      final WarnRule warnRule = entry.getValue();
+      String key = KeysExtractor.getKey(warnRule.getGroupingKeyNames(), event, warnRule.getRuleId());
+      Keyed keyed = new Keyed(event, key, warnRule.getRuleId());
       out.collect(keyed);
       ruleCounter++;
     }
@@ -73,25 +73,25 @@ public class DynamicKeyFunction
 
   @Override
   public void processBroadcastElement(
-      Rule rule, Context ctx, Collector<Keyed<Transaction, String, String>> out) throws Exception {
-//    log.info("{}", rule);
-    BroadcastState<String, Rule> broadcastState =
+          WarnRule warnRule, Context ctx, Collector<Keyed<Transaction, String, String>> out) throws Exception {
+//    log.info("{}", warnRule);
+    BroadcastState<String, WarnRule> broadcastState =
         ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor);
-    handleRuleBroadcast(rule, broadcastState);
-    if (rule.getRuleState() == Rule.RuleState.CONTROL) {
-      handleControlCommand(rule.getControlType(), broadcastState);
+    handleRuleBroadcast(warnRule, broadcastState);
+    if (warnRule.getRuleState() == WarnRule.RuleState.CONTROL) {
+      handleControlCommand(warnRule.getControlType(), broadcastState);
     }
   }
 
   private void handleControlCommand(
-          Rule.ControlType controlType, BroadcastState<String, Rule> rulesState) throws Exception {
+          WarnRule.ControlType controlType, BroadcastState<String, WarnRule> rulesState) throws Exception {
     switch (controlType) {
       case DELETE_RULES_ALL:
-        Iterator<Entry<String, Rule>> entriesIterator = rulesState.iterator();
+        Iterator<Entry<String, WarnRule>> entriesIterator = rulesState.iterator();
         while (entriesIterator.hasNext()) {
-          Entry<String, Rule> ruleEntry = entriesIterator.next();
+          Entry<String, WarnRule> ruleEntry = entriesIterator.next();
           rulesState.remove(ruleEntry.getKey());
-          log.info("Removed Rule {}", ruleEntry.getValue());
+          log.info("Removed WarnRule {}", ruleEntry.getValue());
         }
         break;
     }

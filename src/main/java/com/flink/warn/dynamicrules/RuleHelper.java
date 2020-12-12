@@ -29,9 +29,9 @@ import java.math.BigDecimal;
 /* Collection of helper methods for Rules. */
 public class RuleHelper {
 
-  /* Picks and returns a new accumulator, based on the Rule's aggregator function type. */
-  public static SimpleAccumulator<BigDecimal> getAggregator(Rule rule) {
-    switch (rule.getAggregatorFunctionType()) {
+  /* Picks and returns a new accumulator, based on the WarnRule's aggregator function type. */
+  public static SimpleAccumulator<BigDecimal> getAggregator(WarnRule warnRule) {
+    switch (warnRule.getAggregatorFunctionType()) {
       case SUM:
         return new BigDecimalCounter();
       case AVG:
@@ -42,7 +42,7 @@ public class RuleHelper {
         return new BigDecimalMinimum();
       default:
         throw new RuntimeException(
-            "Unsupported aggregation function type: " + rule.getAggregatorFunctionType());
+            "Unsupported aggregation function type: " + warnRule.getAggregatorFunctionType());
     }
   }
 }

@@ -41,7 +41,7 @@ import static com.flink.warn.dynamicrules.functions.ProcessingUtils.handleRuleBr
  */
 @Slf4j
 public class DynamicKeyFunction2
-        extends BroadcastProcessFunction<JSONObject, Rule, Keyed<JSONObject, String, String>> {
+        extends BroadcastProcessFunction<JSONObject, WarnRule, Keyed<JSONObject, String, String>> {
 
     private RuleCounterGauge ruleCounterGauge;
 
@@ -55,25 +55,51 @@ public class DynamicKeyFunction2
     public void processElement(
             JSONObject event, ReadOnlyContext ctx, Collector<Keyed<JSONObject, String, String>> out)
             throws Exception {
-        ReadOnlyBroadcastState<String, Rule> rulesState =
+        ctx.output(RulesEvaluator.Descriptors.statisticsSinkTag, event.toJSONString());
+        ReadOnlyBroadcastState<String, WarnRule> rulesState =
                 ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor);
-        forkEventForEachGroupingKey(event, rulesState, out);
+        forkEventForEachGroupingKey(event, rulesState, out, ctx);
+    }
+
+    @Override
+    public void processBroadcastElement(
+            WarnRule warnRule, Context ctx, Collector<Keyed<JSONObject, String, String>> out) throws Exception {
+        BroadcastState<String, WarnRule> broadcastState =
+                ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor);
+        handleRuleBroadcast(warnRule, broadcastState);
+        if (warnRule.getRuleState() == WarnRule.RuleState.CONTROL) {
+            handleControlCommand(warnRule.getControlType(), broadcastState);
+        }
+    }
+
+    private void handleControlCommand(
+            WarnRule.ControlType controlType, BroadcastState<String, WarnRule> rulesState) throws Exception {
+        switch (controlType) {
+            case DELETE_RULES_ALL:
+                Iterator<Entry<String, WarnRule>> entriesIterator = rulesState.iterator();
+                while (entriesIterator.hasNext()) {
+                    Entry<String, WarnRule> ruleEntry = entriesIterator.next();
+                    rulesState.remove(ruleEntry.getKey());
+                    log.info("Removed WarnRule {}", ruleEntry.getValue());
+                }
+                break;
+        }
     }
 
     private void forkEventForEachGroupingKey(
             JSONObject event,
-            ReadOnlyBroadcastState<String, Rule> rulesState,
-            Collector<Keyed<JSONObject, String, String>> out)
+            ReadOnlyBroadcastState<String, WarnRule> rulesState,
+            Collector<Keyed<JSONObject, String, String>> out, ReadOnlyContext ctx)
             throws Exception {
         int ruleCounter = 0;
         Long startTime = event.getLong("startTime");
-        for (Entry<String, Rule> entry : rulesState.immutableEntries()) {
-            final Rule rule = entry.getValue();
-            String aggregateValue = event.getString(rule.getAggregateFieldName());
-            if (isMatch(event, rule)) {
-                String key = KeysExtractor.getKey(rule.getGroupingKeyNames(), rule.getDefaultGroupingKeyNames(), rule.getRuleId(), event);
-                JSONObject in = KeysExtractor.getJSONObject(rule.getGroupingKeyNames(), rule.getDefaultGroupingKeyNames(), rule.getRuleId(), event);
-                Keyed<JSONObject, String, String> keyed = new Keyed<>(in, key, rule.getRuleId());
+        for (Entry<String, WarnRule> entry : rulesState.immutableEntries()) {
+            final WarnRule warnRule = entry.getValue();
+            String aggregateValue = event.getString(warnRule.getAggregateFieldName());
+            if (isMatch(event, warnRule)) {
+                String key = KeysExtractor.getKey(warnRule.getGroupingKeyNames(), warnRule.getDefaultGroupingKeyNames(), warnRule.getRuleId(), event);
+                JSONObject in = KeysExtractor.getJSONObject(warnRule.getGroupingKeyNames(), warnRule.getDefaultGroupingKeyNames(), warnRule.getRuleId(), event);
+                Keyed<JSONObject, String, String> keyed = new Keyed<>(in, key, warnRule.getRuleId());
                 keyed.setStartTime(startTime);
                 keyed.setAggregateValue(aggregateValue);
                 out.collect(keyed);
@@ -83,8 +109,8 @@ public class DynamicKeyFunction2
         ruleCounterGauge.setValue(ruleCounter);
     }
 
-    private boolean isMatch(JSONObject object, Rule rule) {
-        List<FieldRule> fieldRules = rule.getConditionList();
+    private boolean isMatch(JSONObject object, WarnRule warnRule) {
+        List<FieldRule> fieldRules = warnRule.getConditionList();
         if (Objects.isNull(fieldRules) || fieldRules.isEmpty()) {
             return true;
         }
@@ -101,32 +127,6 @@ public class DynamicKeyFunction2
         }
 
         return true;
-    }
-
-    @Override
-    public void processBroadcastElement(
-            Rule rule, Context ctx, Collector<Keyed<JSONObject, String, String>> out) throws Exception {
-//    log.info("{}", rule);
-        BroadcastState<String, Rule> broadcastState =
-                ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor);
-        handleRuleBroadcast(rule, broadcastState);
-        if (rule.getRuleState() == Rule.RuleState.CONTROL) {
-            handleControlCommand(rule.getControlType(), broadcastState);
-        }
-    }
-
-    private void handleControlCommand(
-            Rule.ControlType controlType, BroadcastState<String, Rule> rulesState) throws Exception {
-        switch (controlType) {
-            case DELETE_RULES_ALL:
-                Iterator<Entry<String, Rule>> entriesIterator = rulesState.iterator();
-                while (entriesIterator.hasNext()) {
-                    Entry<String, Rule> ruleEntry = entriesIterator.next();
-                    rulesState.remove(ruleEntry.getKey());
-                    log.info("Removed Rule {}", ruleEntry.getValue());
-                }
-                break;
-        }
     }
 
     private static class RuleCounterGauge implements Gauge<Integer> {

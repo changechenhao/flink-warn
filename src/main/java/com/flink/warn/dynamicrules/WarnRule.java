@@ -30,11 +30,12 @@ import java.util.List;
 @EqualsAndHashCode
 @ToString
 @Data
-public class Rule {
+public class WarnRule {
 
   private String ruleId;
+  private String warnName;
   private RuleState ruleState;
-  private List<String> groupingKeyNames; // aggregation
+  private List<String> groupingKeyNames;
   private List<String> defaultGroupingKeyNames;
   private List<FieldRule> conditionList;
   private List<String> unique;

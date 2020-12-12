@@ -18,7 +18,7 @@
 
 package com.flink.warn.dynamicrules.functions;
 
-import com.flink.warn.dynamicrules.Rule;
+import com.flink.warn.dynamicrules.WarnRule;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapState;
 
@@ -27,15 +27,15 @@ import java.util.Set;
 
 class ProcessingUtils {
 
-    static void handleRuleBroadcast(Rule rule, BroadcastState<String, Rule> broadcastState)
+    static void handleRuleBroadcast(WarnRule warnRule, BroadcastState<String, WarnRule> broadcastState)
             throws Exception {
-        switch (rule.getRuleState()) {
+        switch (warnRule.getRuleState()) {
             case ACTIVE:
             case PAUSE:
-                broadcastState.put(rule.getRuleId(), rule);
+                broadcastState.put(warnRule.getRuleId(), warnRule);
                 break;
             case DELETE:
-                broadcastState.remove(rule.getRuleId());
+                broadcastState.remove(warnRule.getRuleId());
                 break;
         }
     }

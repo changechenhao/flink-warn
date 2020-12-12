@@ -20,7 +20,7 @@ package com.flink.warn.dynamicrules.sources;
 
 import com.flink.warn.config.Config;
 import com.flink.warn.dynamicrules.KafkaUtils;
-import com.flink.warn.dynamicrules.Rule;
+import com.flink.warn.dynamicrules.WarnRule;
 import com.flink.warn.dynamicrules.functions.RuleDeserializer;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -53,7 +53,7 @@ public class RulesSource {
             new FlinkKafkaConsumer010<>(rulesTopic, new SimpleStringSchema(), kafkaProps);
         kafkaConsumer.setStartFromLatest();
         return kafkaConsumer;
-      case PUBSUB:
+      case MONGODB:
         /*return PubSubSource.<String>newBuilder()
             .withDeserializationSchema(new SimpleStringSchema())
             .withProjectName(config.get(GCP_PROJECT_NAME))
@@ -67,15 +67,15 @@ public class RulesSource {
     }
   }
 
-  public static DataStream<Rule> stringsStreamToRules(DataStream<String> ruleStrings) {
+  public static DataStream<WarnRule> stringsStreamToRules(DataStream<String> ruleStrings) {
     return ruleStrings
         .flatMap(new RuleDeserializer())
-        .name("Rule Deserialization")
+        .name("WarnRule Deserialization")
         .setParallelism(RULES_STREAM_PARALLELISM)
         .assignTimestampsAndWatermarks(
-            new BoundedOutOfOrdernessTimestampExtractor<Rule>(Time.of(0, TimeUnit.MILLISECONDS)) {
+            new BoundedOutOfOrdernessTimestampExtractor<WarnRule>(Time.of(0, TimeUnit.MILLISECONDS)) {
               @Override
-              public long extractTimestamp(Rule element) {
+              public long extractTimestamp(WarnRule element) {
                 // Prevents connected data+update stream watermark stalling.
                 return Long.MAX_VALUE;
               }
@@ -85,6 +85,7 @@ public class RulesSource {
   public enum Type {
     KAFKA("Rules Source (Kafka)"),
     PUBSUB("Rules Source (Pub/Sub)"),
+    MONGODB("Rules Source (Mongodb)"),
     SOCKET("Rules Source (Socket)");
 
     private String name;

@@ -38,7 +38,7 @@ public class KeysExtractor {
     StringBuilder sb = new StringBuilder();
     sb.append("{");
     if (keyNames.size() > 0) {
-      sb.append("ruleId=" + ruleId + ";");
+      sb.append("warnRuleId=" + ruleId + ";");
       Iterator<String> it = keyNames.iterator();
       appendKeyValue(sb, object, it.next());
 
@@ -56,7 +56,7 @@ public class KeysExtractor {
     StringBuilder sb = new StringBuilder();
     sb.append("{");
     if (keyNames.size() > 0) {
-      sb.append("ruleId=" + ruleId + ";");
+      sb.append("warnRuleId=" + ruleId + ";");
       Iterator<String> it = keyNames.iterator();
       appendKeyValue(sb, object, it.next());
 

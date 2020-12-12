@@ -31,7 +31,7 @@ public class RuleParser {
 
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  public Rule fromString(String line) throws IOException {
+  public WarnRule fromString(String line) throws IOException {
     if (line.length() > 0 && '{' == line.charAt(0)) {
       return parseJson(line);
     } else {
@@ -39,32 +39,32 @@ public class RuleParser {
     }
   }
 
-  private Rule parseJson(String ruleString) throws IOException {
-    return objectMapper.readValue(ruleString, Rule.class);
+  private WarnRule parseJson(String ruleString) throws IOException {
+    return objectMapper.readValue(ruleString, WarnRule.class);
   }
 
-  private static Rule parsePlain(String ruleString) throws IOException {
+  private static WarnRule parsePlain(String ruleString) throws IOException {
     List<String> tokens = Arrays.asList(ruleString.split(","));
     if (tokens.size() != 9) {
-      throw new IOException("Invalid rule (wrong number of tokens): " + ruleString);
+      throw new IOException("Invalid warnRule (wrong number of tokens): " + ruleString);
     }
 
     Iterator<String> iter = tokens.iterator();
-    Rule rule = new Rule();
+    WarnRule warnRule = new WarnRule();
 
-    rule.setRuleId(stripBrackets(iter.next()));
-    rule.setRuleState(Rule.RuleState.valueOf(stripBrackets(iter.next()).toUpperCase()));
-    rule.setGroupingKeyNames(getNames(iter.next()));
-    rule.setDefaultGroupingKeyNames(getNames(iter.next()));
-    rule.setUnique(getNames(iter.next()));
-    rule.setAggregateFieldName(stripBrackets(iter.next()));
-    rule.setAggregatorFunctionType(
-        Rule.AggregatorFunctionType.valueOf(stripBrackets(iter.next()).toUpperCase()));
-    rule.setLimitOperatorType(Rule.LimitOperatorType.fromString(stripBrackets(iter.next())));
-    rule.setLimit(new BigDecimal(stripBrackets(iter.next())));
-    rule.setWindowMinutes(Integer.parseInt(stripBrackets(iter.next())));
+    warnRule.setRuleId(stripBrackets(iter.next()));
+    warnRule.setRuleState(WarnRule.RuleState.valueOf(stripBrackets(iter.next()).toUpperCase()));
+    warnRule.setGroupingKeyNames(getNames(iter.next()));
+    warnRule.setDefaultGroupingKeyNames(getNames(iter.next()));
+    warnRule.setUnique(getNames(iter.next()));
+    warnRule.setAggregateFieldName(stripBrackets(iter.next()));
+    warnRule.setAggregatorFunctionType(
+        WarnRule.AggregatorFunctionType.valueOf(stripBrackets(iter.next()).toUpperCase()));
+    warnRule.setLimitOperatorType(WarnRule.LimitOperatorType.fromString(stripBrackets(iter.next())));
+    warnRule.setLimit(new BigDecimal(stripBrackets(iter.next())));
+    warnRule.setWindowMinutes(Integer.parseInt(stripBrackets(iter.next())));
 
-    return rule;
+    return warnRule;
   }
 
   private static String stripBrackets(String expression) {

@@ -18,12 +18,17 @@
 
 package com.flink.warn.dynamicrules;
 
+import com.alibaba.fastjson.JSONObject;
 import com.flink.warn.config.Config;
-import com.flink.warn.dynamicrules.functions.DynamicAlertFunction;
-import com.flink.warn.dynamicrules.functions.DynamicKeyFunction;
+import com.flink.warn.config.PropertiesConfig;
+import com.flink.warn.dynamicrules.functions.DynamicAlertFunction2;
+import com.flink.warn.dynamicrules.functions.DynamicKeyFunction2;
 import com.flink.warn.dynamicrules.sources.RulesSource;
 import com.flink.warn.dynamicrules.sources.TransactionsSource;
+import com.flink.warn.entiy.ElasticsearchConfig;
+import com.flink.warn.util.ElasticSearchSinkUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
@@ -38,7 +43,10 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
 import org.apache.flink.util.OutputTag;
+import org.elasticsearch.client.Requests;
+import org.elasticsearch.common.xcontent.XContentType;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -64,35 +72,41 @@ public class RulesEvaluator {
     StreamExecutionEnvironment env = configureStreamExecutionEnvironment(rulesSourceType, isLocal);
 
     // Streams setup
-    DataStream<Rule> rulesUpdateStream = getRulesUpdateStream(env);
-    DataStream<Transaction> transactions = getTransactionsStream(env);
+    DataStream<WarnRule> rulesUpdateStream = getRulesUpdateStream(env);
+    DataStream<JSONObject> transactions = getTransactionsStream(env);
 
-    BroadcastStream<Rule> rulesStream = rulesUpdateStream.broadcast(Descriptors.rulesDescriptor);
+    BroadcastStream<WarnRule> rulesStream = rulesUpdateStream.broadcast(Descriptors.rulesDescriptor);
 
     // Processing pipeline setup
-    DataStream<Alert> alerts =
-        transactions
+
+    SingleOutputStreamOperator<JSONObject> alerts = transactions
             .connect(rulesStream)
-            .process(new DynamicKeyFunction())
+            .process(new DynamicKeyFunction2())
             .uid("DynamicKeyFunction")
             .name("Dynamic Partitioning Function")
             .keyBy((keyed) -> keyed.getKey())
             .connect(rulesStream)
-            .process(new DynamicAlertFunction())
+            .process(new DynamicAlertFunction2())
             .uid("DynamicAlertFunction")
-            .name("Dynamic Rule Evaluation Function");
+            .name("Dynamic WarnRule Evaluation Function");
 
-    DataStream<String> allRuleEvaluations =
-        ((SingleOutputStreamOperator<Alert>) alerts).getSideOutput(Descriptors.demoSinkTag);
+    DataStream<String> allRuleEvaluations = alerts.getSideOutput(Descriptors.demoSinkTag);
+    allRuleEvaluations.print().setParallelism(1).name("WarnRule Evaluation Sink");
 
-    DataStream<Long> latency =
-        ((SingleOutputStreamOperator<Alert>) alerts).getSideOutput(Descriptors.latencySinkTag);
+    DataStream<String> statisticsStream = alerts.getSideOutput(Descriptors.statisticsSinkTag);
+    statisticsStream.print().setParallelism(1);
 
-    DataStream<Rule> currentRules =
-        ((SingleOutputStreamOperator<Alert>) alerts).getSideOutput(Descriptors.currentRulesSinkTag);
+    alerts.print().name("Alert STDOUT Sink");
 
-//    alerts.print().name("Alert STDOUT Sink");
-    allRuleEvaluations.print().setParallelism(1).name("Rule Evaluation Sink");
+    DataStream<JSONObject> warnStream = alerts.getSideOutput(Descriptors.warnSinkTag);
+    String esFilePath = "/home/es.properties";
+    ElasticsearchConfig esConfig = ElasticsearchConfig.create(new PropertiesConfig(esFilePath));
+    ElasticSearchSinkUtil.addSink(esConfig, "es-warn", alerts,
+            (JSONObject result, RuntimeContext runtimeContext, RequestIndexer requestIndexer) -> {
+              requestIndexer.add(Requests.indexRequest()
+                      .index("warn")
+                      .source(JSONObject.toJSONBytes(result), XContentType.JSON));
+            });
 
 //    DataStream<String> alertsJson = AlertsSink.alertsStreamToJson(alerts);
 //    DataStream<String> currentRulesJson = CurrentRulesSink.rulesStreamTo{ "ruleId": 1, "ruleState": "ACTIVE", "groupingKeyNames": ["paymentType"], "unique": [], "aggregateFieldName": "paymentAmount", "aggregatorFunctionType": "SUM","limitOperatorType": "GREATER","limit": 200, "windowMinutes": 1}Json(currentRules);
@@ -115,7 +129,7 @@ public class RulesEvaluator {
     env.execute("Fraud Detection Engine");
   }
 
-  private DataStream<Transaction> getTransactionsStream(StreamExecutionEnvironment env) {
+  private DataStream<JSONObject> getTransactionsStream(StreamExecutionEnvironment env) {
     // Data stream setup
     SourceFunction<String> transactionSource = TransactionsSource.createTransactionsSource(config);
     int sourceParallelism = config.get(SOURCE_PARALLELISM);
@@ -123,13 +137,13 @@ public class RulesEvaluator {
         env.addSource(transactionSource)
             .name("Transactions Source")
             .setParallelism(sourceParallelism);
-    DataStream<Transaction> transactionsStream =
-        TransactionsSource.stringsStreamToTransactions(transactionsStringsStream);
-    return transactionsStream.assignTimestampsAndWatermarks(
-        new SimpleBoundedOutOfOrdernessTimestampExtractor<>(config.get(OUT_OF_ORDERNESS)));
+    DataStream<JSONObject> transactionsStream =
+        TransactionsSource.stringsStreamToJSONObject(transactionsStringsStream);
+    SimpleBoundedOutOfOrdernessTimestampExtractor<JSONObject> extractor = new SimpleBoundedOutOfOrdernessTimestampExtractor<>(config.get(OUT_OF_ORDERNESS));
+    return transactionsStream.assignTimestampsAndWatermarks(extractor);
   }
 
-  private DataStream<Rule> getRulesUpdateStream(StreamExecutionEnvironment env) throws IOException {
+  private DataStream<WarnRule> getRulesUpdateStream(StreamExecutionEnvironment env) throws IOException {
 
     RulesSource.Type rulesSourceEnumType = getRulesSourceType();
 
@@ -163,7 +177,7 @@ public class RulesEvaluator {
     return env;
   }
 
-  private static class SimpleBoundedOutOfOrdernessTimestampExtractor<T extends Transaction>
+ /* private static class SimpleBoundedOutOfOrdernessTimestampExtractor<T extends Transaction>
       extends BoundedOutOfOrdernessTimestampExtractor<T> {
 
     public SimpleBoundedOutOfOrdernessTimestampExtractor(int outOfOrderdnessMillis) {
@@ -173,6 +187,19 @@ public class RulesEvaluator {
     @Override
     public long extractTimestamp(T element) {
       return element.getEventTime();
+    }
+  }*/
+
+  private static class SimpleBoundedOutOfOrdernessTimestampExtractor<T extends JSONObject>
+          extends BoundedOutOfOrdernessTimestampExtractor<T> {
+
+    public SimpleBoundedOutOfOrdernessTimestampExtractor(int outOfOrderdnessMillis) {
+      super(Time.of(outOfOrderdnessMillis, TimeUnit.MILLISECONDS));
+    }
+
+    @Override
+    public long extractTimestamp(T element) {
+      return element.getLongValue("startTime");
     }
   }
 
@@ -191,13 +218,16 @@ public class RulesEvaluator {
   }
 
   public static class Descriptors {
-    public static final MapStateDescriptor<String, Rule> rulesDescriptor =
+    public static final MapStateDescriptor<String, WarnRule> rulesDescriptor =
         new MapStateDescriptor<>(
-            "rules", BasicTypeInfo.STRING_TYPE_INFO, TypeInformation.of(Rule.class));
+            "rules", BasicTypeInfo.STRING_TYPE_INFO, TypeInformation.of(WarnRule.class));
 
     public static final OutputTag<String> demoSinkTag = new OutputTag<String>("demo-sink") {};
+    public static final OutputTag<String> statisticsSinkTag = new OutputTag<String>("statistics-sink") {};
+    public static final OutputTag<JSONObject> warnSinkTag = new OutputTag<JSONObject>("warn-sink") {};
     public static final OutputTag<Long> latencySinkTag = new OutputTag<Long>("latency-sink") {};
-    public static final OutputTag<Rule> currentRulesSinkTag =
-        new OutputTag<Rule>("current-rules-sink") {};
+    public static final OutputTag<WarnRule> currentRulesSinkTag =
+        new OutputTag<WarnRule>("current-rules-sink") {};
+
   }
 }

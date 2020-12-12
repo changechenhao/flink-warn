@@ -47,7 +47,7 @@ import static com.flink.warn.dynamicrules.functions.ProcessingUtils.handleRuleBr
 @Slf4j
 public class DynamicAlertFunction
     extends KeyedBroadcastProcessFunction<
-        String, Keyed<Transaction, String, String>, Rule, Alert> {
+        String, Keyed<Transaction, String, String>, WarnRule, Alert> {
 
   private static final String COUNT = "COUNT_FLINK";
   private static final String COUNT_WITH_RESET = "COUNT_WITH_RESET_FLINK";
@@ -79,70 +79,69 @@ public class DynamicAlertFunction
   public void processElement(
       Keyed<Transaction, String, String> value, ReadOnlyContext ctx, Collector<Alert> out)
       throws Exception {
-
     long currentEventTime = value.getWrapped().getEventTime();
     addToStateValuesSet(windowState, currentEventTime, value.getWrapped());
 
     long ingestionTime = value.getWrapped().getIngestionTimestamp();
     ctx.output(RulesEvaluator.Descriptors.latencySinkTag, System.currentTimeMillis() - ingestionTime);
 
-    Rule rule = ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor).get(value.getId());
+    WarnRule warnRule = ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor).get(value.getId());
     if(ruleId == null){
-      ruleId = rule.getRuleId();
+      ruleId = warnRule.getRuleId();
     }
-    if (noRuleAvailable(rule)) {
+    if (noRuleAvailable(warnRule)) {
       return;
     }
 
-    if (rule.getRuleState() == Rule.RuleState.ACTIVE) {
-      Long windowStartForEvent = rule.getWindowStartFor(currentEventTime);
+    if (warnRule.getRuleState() == WarnRule.RuleState.ACTIVE) {
+      Long windowStartForEvent = warnRule.getWindowStartFor(currentEventTime);
 
       long cleanupTime = (currentEventTime / 1000) * 1000;
       ctx.timerService().registerEventTimeTimer(cleanupTime);
 
-      SimpleAccumulator<BigDecimal> aggregator = RuleHelper.getAggregator(rule);
+      SimpleAccumulator<BigDecimal> aggregator = RuleHelper.getAggregator(warnRule);
       for (Long stateEventTime : windowState.keys()) {
         if (isStateValueInWindow(stateEventTime, windowStartForEvent, currentEventTime)) {
-          aggregateValuesInState(stateEventTime, aggregator, rule);
+          aggregateValuesInState(stateEventTime, aggregator, warnRule);
         }
       }
 
       BigDecimal aggregateResult = aggregator.getLocalValue();
-      boolean ruleResult = rule.apply(aggregateResult);
+      boolean ruleResult = warnRule.apply(aggregateResult);
 
       ctx.output(
           RulesEvaluator.Descriptors.demoSinkTag, this.toString() + "-KEY="+value.getKey());
 
       if (ruleResult) {
-        if (COUNT_WITH_RESET.equals(rule.getAggregateFieldName())) {
+        if (COUNT_WITH_RESET.equals(warnRule.getAggregateFieldName())) {
           evictAllStateElements();
         }
         alertMeter.markEvent();
         out.collect(
             new Alert<>(
-                rule.getRuleId(), rule, value.getKey(), value.getWrapped(), aggregateResult));
+                warnRule.getRuleId(), warnRule, value.getKey(), value.getWrapped(), aggregateResult));
       }
     }
   }
 
   @Override
-  public void processBroadcastElement(Rule rule, Context ctx, Collector<Alert> out)
+  public void processBroadcastElement(WarnRule warnRule, Context ctx, Collector<Alert> out)
       throws Exception {
-    BroadcastState<String, Rule> broadcastState =
+    BroadcastState<String, WarnRule> broadcastState =
         ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor);
-    handleRuleBroadcast(rule, broadcastState);
-    updateWidestWindowRule(rule, broadcastState);
-    if (rule.getRuleState() == Rule.RuleState.CONTROL) {
-      handleControlCommand(rule, broadcastState, ctx);
+    handleRuleBroadcast(warnRule, broadcastState);
+    updateWidestWindowRule(warnRule, broadcastState);
+    if (warnRule.getRuleState() == WarnRule.RuleState.CONTROL) {
+      handleControlCommand(warnRule, broadcastState, ctx);
     }
   }
 
   private void handleControlCommand(
-      Rule command, BroadcastState<String, Rule> rulesState, Context ctx) throws Exception {
-    Rule.ControlType controlType = command.getControlType();
+          WarnRule command, BroadcastState<String, WarnRule> rulesState, Context ctx) throws Exception {
+    WarnRule.ControlType controlType = command.getControlType();
     switch (controlType) {
       case EXPORT_RULES_CURRENT:
-        for (Entry<String, Rule> entry : rulesState.entries()) {
+        for (Entry<String, WarnRule> entry : rulesState.entries()) {
           ctx.output(RulesEvaluator.Descriptors.currentRulesSinkTag, entry.getValue());
         }
         break;
@@ -153,9 +152,9 @@ public class DynamicAlertFunction
         rulesState.remove("");
         break;
       case DELETE_RULES_ALL:
-        Iterator<Entry<String, Rule>> entriesIterator = rulesState.iterator();
+        Iterator<Entry<String, WarnRule>> entriesIterator = rulesState.iterator();
         while (entriesIterator.hasNext()) {
-          Entry<String, Rule> ruleEntry = entriesIterator.next();
+          Entry<String, WarnRule> ruleEntry = entriesIterator.next();
           rulesState.remove(ruleEntry.getKey());
         }
         break;
@@ -168,41 +167,41 @@ public class DynamicAlertFunction
   }
 
   private void aggregateValuesInState(
-      Long stateEventTime, SimpleAccumulator<BigDecimal> aggregator, Rule rule) throws Exception {
+      Long stateEventTime, SimpleAccumulator<BigDecimal> aggregator, WarnRule warnRule) throws Exception {
     Set<Transaction> inWindow = windowState.get(stateEventTime);
-    if (COUNT.equals(rule.getAggregateFieldName())
-        || COUNT_WITH_RESET.equals(rule.getAggregateFieldName())) {
+    if (COUNT.equals(warnRule.getAggregateFieldName())
+        || COUNT_WITH_RESET.equals(warnRule.getAggregateFieldName())) {
       for (Transaction event : inWindow) {
         aggregator.add(BigDecimal.ONE);
       }
     } else {
       for (Transaction event : inWindow) {
         BigDecimal aggregatedValue =
-            FieldsExtractor.getBigDecimalByName(rule.getAggregateFieldName(), event);
+            FieldsExtractor.getBigDecimalByName(warnRule.getAggregateFieldName(), event);
         aggregator.add(aggregatedValue);
       }
     }
   }
 
-  private boolean noRuleAvailable(Rule rule) {
+  private boolean noRuleAvailable(WarnRule warnRule) {
     // This could happen if the BroadcastState in this CoProcessFunction was updated after it was
     // updated and used in `DynamicKeyFunction`
-    if (rule == null) {
+    if (warnRule == null) {
       return true;
     }
     return false;
   }
 
-  private void updateWidestWindowRule(Rule rule, BroadcastState<String, Rule> broadcastState)
+  private void updateWidestWindowRule(WarnRule warnRule, BroadcastState<String, WarnRule> broadcastState)
       throws Exception {
-    /*Rule widestWindowRule = broadcastState.get(WIDEST_RULE_KEY);
+    /*WarnRule widestWindowRule = broadcastState.get(WIDEST_RULE_KEY);
     if (widestWindowRule == null) {
-      broadcastState.put(WIDEST_RULE_KEY, rule);
+      broadcastState.put(WIDEST_RULE_KEY, warnRule);
       return;
     }
-    if (widestWindowRule != null && widestWindowRule.getRuleState() == Rule.RuleState.ACTIVE) {
-      if (widestWindowRule.getWindowMillis() < rule.getWindowMillis()) {
-        broadcastState.put(WIDEST_RULE_KEY, rule);
+    if (widestWindowRule != null && widestWindowRule.getRuleState() == WarnRule.RuleState.ACTIVE) {
+      if (widestWindowRule.getWindowMillis() < warnRule.getWindowMillis()) {
+        broadcastState.put(WIDEST_RULE_KEY, warnRule);
       }
     }*/
   }
@@ -210,9 +209,9 @@ public class DynamicAlertFunction
   @Override
   public void onTimer(final long timestamp, final OnTimerContext ctx, final Collector<Alert> out)
       throws Exception {
-    Rule widestWindowRule = ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor).get(ruleId);
+    WarnRule widestWindowWarnRule = ctx.getBroadcastState(RulesEvaluator.Descriptors.rulesDescriptor).get(ruleId);
     Optional<Long> cleanupEventTimeWindow =
-        Optional.ofNullable(widestWindowRule).map(Rule::getWindowMillis);
+        Optional.ofNullable(widestWindowWarnRule).map(WarnRule::getWindowMillis);
     Optional<Long> cleanupEventTimeThreshold =
         cleanupEventTimeWindow.map(window -> timestamp - window);
 

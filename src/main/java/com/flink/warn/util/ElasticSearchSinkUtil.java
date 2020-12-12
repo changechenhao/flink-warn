@@ -1,7 +1,7 @@
 package com.flink.warn.util;
 
 import com.flink.warn.entiy.ElasticsearchConfig;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
 import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink;
 import org.apache.http.HttpHost;
@@ -27,7 +27,7 @@ public class ElasticSearchSinkUtil {
      * @param <T>
      */
     public static <T> void addSink(ElasticsearchConfig config, String sinkName,
-                                   SingleOutputStreamOperator<T> data, ElasticsearchSinkFunction<T> func) {
+                                   DataStream<T> data, ElasticsearchSinkFunction<T> func) {
         ElasticsearchSink.Builder<T> esSinkBuilder = new ElasticsearchSink.Builder<>(config.getEsAddresses(), func);
         if(Objects.nonNull(config.getBulkSize())){
             esSinkBuilder.setBulkFlushMaxActions(config.getBulkSize());
