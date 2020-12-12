@@ -19,33 +19,18 @@
 package com.flink.warn.dynamicrules;
 
 import com.flink.warn.config.Config;
-import com.flink.warn.config.Parameters;
+import com.flink.warn.config.PropertiesConfig;
 
 import java.util.Properties;
 
-import static com.flink.warn.config.Parameters.*;
+import static com.flink.warn.config.Parameters.KAFKA_CONFIG_PATH;
 
 
 public class KafkaUtils {
 
   public static Properties initConsumerProperties(Config config) {
-    Properties kafkaProps = initProperties(config);
-    String offset = config.get(Parameters.OFFSET);
-    kafkaProps.setProperty("auto.offset.reset", offset);
-    return kafkaProps;
+    PropertiesConfig kafkaConfig = new PropertiesConfig(config.get(KAFKA_CONFIG_PATH));
+    return kafkaConfig.getProperties();
   }
 
-  public static Properties initProducerProperties(Config params) {
-    return initProperties(params);
-  }
-
-  private static Properties initProperties(Config config) {
-    Properties kafkaProps = new Properties();
-    String kafkaHost = config.get(KAFKA_HOST);
-    int kafkaPort = config.get(KAFKA_PORT);
-    String servers = String.format("%s:%s", kafkaHost, kafkaPort);
-    kafkaProps.setProperty("bootstrap.servers", servers);
-    kafkaProps.setProperty("bootstrap.servers", servers);
-    return kafkaProps;
-  }
 }

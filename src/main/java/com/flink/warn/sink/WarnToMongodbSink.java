@@ -23,19 +23,19 @@ public class WarnToMongodbSink  extends RichSinkFunction<Warn> {
     @Override
     public void open(Configuration parameters) throws Exception {
         super.open(parameters);
-        mongoDBClient = MongoDBClient.getInstance();
-        if(mongoDBClient.getMongoClient() == null){
-            mongoDBClient.init();
+
+        if (this.mongoDBClient == null) {
+            this.mongoDBClient = MongoDBClient.getInstance();
+            this.mongoDBClient.init();
+            DB dataDb = this.mongoDBClient.getDataDb();
+            Jongo jongo = new Jongo(dataDb);
+            this.collection = jongo.getCollection(WARN);
         }
-        DB dataDb = mongoDBClient.getDataDb();
-        Jongo jongo = new Jongo(dataDb);
-        this.collection = jongo.getCollection(WARN);
     }
+
 
     @Override
     public void close() throws Exception {
-        super.close();
-        MongoDBClient.getInstance().close();
     }
 
     @Override

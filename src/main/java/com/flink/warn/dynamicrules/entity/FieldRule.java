@@ -56,11 +56,11 @@ public class FieldRule {
     public boolean apply(JSONObject object) {
         switch (operatorType.getDataType()) {
             case STRING:
-                Long aLong = object.getLong(fieldName);
-                return apply(aLong);
-            case NUMBER:
                 String string = object.getString(fieldName);
                 return apply(string);
+            case NUMBER:
+                Long aLong = object.getLong(fieldName);
+                return apply(aLong);
             default:
                 throw new RuntimeException("Unknown data type: " + operatorType.getDataType());
         }

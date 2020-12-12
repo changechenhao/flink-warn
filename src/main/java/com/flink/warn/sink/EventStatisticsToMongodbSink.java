@@ -27,22 +27,19 @@ public class EventStatisticsToMongodbSink  extends RichSinkFunction<EventStatist
 
     @Override
     public void open(Configuration parameters) throws Exception {
-        logger.info("开始初始化EventStatisticsToMongodbSink.......");
-        super.open(parameters);
-        mongoDBClient = MongoDBClient.getInstance();
-        if(mongoDBClient.getMongoClient() == null){
-            mongoDBClient.init();
+        if(this.mongoDBClient == null){
+            logger.info("开始初始化EventStatisticsToMongodbSink.......");
+            this.mongoDBClient.init();
+            DB dataDb = mongoDBClient.getDataDb();
+            Jongo jongo = new Jongo(dataDb);
+            this.collection = jongo.getCollection(EVENT_STATISTICS);
+            logger.info("初始化EventStatisticsToMongodbSink成功");
         }
-        DB dataDb = mongoDBClient.getDataDb();
-        Jongo jongo = new Jongo(dataDb);
-        this.collection = jongo.getCollection(EVENT_STATISTICS);
-        logger.info("初始化EventStatisticsToMongodbSink成功");
     }
 
     @Override
     public void close() throws Exception {
-        super.close();
-        mongoDBClient.close();
+
     }
 
     @Override

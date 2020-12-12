@@ -55,22 +55,25 @@ public class KeysExtractor {
           throws NoSuchFieldException, IllegalAccessException {
     StringBuilder sb = new StringBuilder();
     sb.append("{");
+    sb.append("warnRuleId=" + ruleId);
+
     if (keyNames.size() > 0) {
-      sb.append("warnRuleId=" + ruleId + ";");
       Iterator<String> it = keyNames.iterator();
       appendKeyValue(sb, object, it.next());
-
       while (it.hasNext()) {
         sb.append(";");
         appendKeyValue(sb, object, it.next());
       }
+    }
 
+    if (keyNames2.size() > 0) {
       Iterator<String> it2 = keyNames2.iterator();
       while (it2.hasNext()) {
         sb.append(";");
         appendKeyValue(sb, object, it2.next());
       }
     }
+
     sb.append("}");
     return sb.toString();
   }

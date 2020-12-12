@@ -21,17 +21,25 @@ public class OriginalEvent {
 
     private String srcCountry;
 
-    private String srcProProvince;
+    private String srcProvince;
 
     private String srcCity;
 
     private String dstCountry;
 
-    private String dstProProvince;
+    private String dstProvince;
 
     private String dstCity;
 
     private String deviceIp;
+
+    private String level;
+
+    private String assetType;
+
+    private String assetSubType;
+
+    private String protocol;
 
     private String logType;
 

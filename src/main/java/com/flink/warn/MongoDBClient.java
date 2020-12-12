@@ -6,9 +6,6 @@ import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 
 import static com.flink.warn.constants.PropertiesConstants.*;
@@ -58,36 +55,26 @@ public class MongoDBClient {
         int connectTimeout = config.getIntValue(CONNECT_TIMEOUT);
         int maxWaitTime = config.getIntValue(MAX_WAIT_TIME);
         int connectionsPerHost = config.getIntValue(CONNECTIONS_PERHOST);
-        int threadsAllowed = config.getIntValue(THREADS_ALLOWED);
+        int threadsAllowed = 20;
         int socketTimeout = config.getIntValue(SOCKET_TIMEOUT);
+        int maxConnectionIdleTime = config.getIntValue(MAX_CONNECTION_IDLET_IME);
 
         // 选项构建者
-        com.mongodb.MongoClientOptions.Builder builder = new MongoClientOptions.Builder();
-
-        // 设置连接超时时间
-        builder.connectTimeout(connectTimeout);
-
-        // 每个地址最大请求数
-        builder.connectionsPerHost(connectionsPerHost);
-
-        builder.threadsAllowedToBlockForConnectionMultiplier(threadsAllowed);
-
-        // 设置最大等待时间
-        builder.maxWaitTime(maxWaitTime);
-
-        // 读取数据的超时时间
-        builder.socketTimeout(socketTimeout);
+        MongoClientOptions options = new MongoClientOptions.Builder()
+                .connectTimeout(connectTimeout)
+                .maxConnectionIdleTime(maxConnectionIdleTime)
+                .connectionsPerHost(connectionsPerHost)
+                .threadsAllowedToBlockForConnectionMultiplier(threadsAllowed)
+                .maxWaitTime(maxWaitTime)
+                .socketTimeout(socketTimeout)
+                .cursorFinalizerEnabled(false)
+                .build();
 
         ServerAddress serverAddress = new ServerAddress(host, port);
 
-        List<MongoCredential> credentials = new ArrayList<MongoCredential>();
-
         MongoCredential credential = MongoCredential.createCredential(username, logindb, password.toCharArray());
 
-        credentials.add(credential);
-
-        mongoClient=new MongoClient(serverAddress, Arrays.asList(credential));
-
+        mongoClient = new MongoClient(serverAddress, credential, options);
     }
 
     public MongoClient getMongoClient() {

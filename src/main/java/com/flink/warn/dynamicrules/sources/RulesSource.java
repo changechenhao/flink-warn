@@ -19,23 +19,19 @@
 package com.flink.warn.dynamicrules.sources;
 
 import com.flink.warn.config.Config;
-import com.flink.warn.dynamicrules.KafkaUtils;
 import com.flink.warn.dynamicrules.entity.WarnRule;
-import com.flink.warn.dynamicrules.functions.MongoDBStreamFunction;
 import com.flink.warn.dynamicrules.functions.RuleDeserializer;
-import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.source.SocketTextStreamFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer010;
 
 import java.io.IOException;
-import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import static com.flink.warn.config.Parameters.*;
+import static com.flink.warn.config.Parameters.RULES_SOURCE;
+import static com.flink.warn.config.Parameters.SOCKET_PORT;
 
 public class RulesSource {
 
@@ -47,13 +43,6 @@ public class RulesSource {
     RulesSource.Type rulesSourceType = RulesSource.Type.valueOf(sourceType.toUpperCase());
 
     switch (rulesSourceType) {
-      case KAFKA:
-        Properties kafkaProps = KafkaUtils.initConsumerProperties(config);
-        String rulesTopic = config.get(RULES_TOPIC);
-        FlinkKafkaConsumer010<String> kafkaConsumer =
-            new FlinkKafkaConsumer010<>(rulesTopic, new SimpleStringSchema(), kafkaProps);
-        kafkaConsumer.setStartFromLatest();
-        return kafkaConsumer;
       case SOCKET:
         return new SocketTextStreamFunction("localhost", config.get(SOCKET_PORT), "\n", -1);
       default:

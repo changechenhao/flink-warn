@@ -406,12 +406,12 @@ public class StatisticsTask {
 
     private static Properties buildKafkaProperties(PropertiesConfig config) {
         Properties props = new Properties();
-        props.put(BOOTSTRAP_SERVERS, config.getString(KAFKA, BOOTSTRAP_SERVERS));
-        props.put(ZOOKEEPER_CONNECT, config.getString(KAFKA, ZOOKEEPER_CONNECT));
-        props.put(GROUP_ID, config.getString(KAFKA, GROUP_ID));
-        props.put(KEY_DESERIALIZER, config.getString(KAFKA, KEY_DESERIALIZER));
-        props.put(VALUE_DESERIALIZER, config.getString(KAFKA, VALUE_DESERIALIZER));
-        props.put(AUTO_OFFSET_RESET, config.getString(KAFKA, AUTO_OFFSET_RESET));
+        props.put(BOOTSTRAP_SERVERS, config.getString(BOOTSTRAP_SERVERS));
+        props.put(ZOOKEEPER_CONNECT, config.getString(ZOOKEEPER_CONNECT));
+        props.put(GROUP_ID, config.getString(GROUP_ID));
+        props.put(KEY_DESERIALIZER, config.getString(KEY_DESERIALIZER));
+        props.put(VALUE_DESERIALIZER, config.getString(VALUE_DESERIALIZER));
+        props.put(AUTO_OFFSET_RESET, config.getString(AUTO_OFFSET_RESET));
         return props;
     }
 

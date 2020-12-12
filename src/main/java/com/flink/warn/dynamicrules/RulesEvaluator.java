@@ -27,9 +27,9 @@ import com.flink.warn.dynamicrules.entity.WarnRule;
 import com.flink.warn.dynamicrules.functions.CountAggregateFunction;
 import com.flink.warn.dynamicrules.functions.DynamicAlertFunction;
 import com.flink.warn.dynamicrules.functions.DynamicKeyFunction;
-import com.flink.warn.dynamicrules.functions.MongoDBStreamFunction;
+import com.flink.warn.dynamicrules.sources.MongodbSourceFunction;
 import com.flink.warn.dynamicrules.sources.RulesSource;
-import com.flink.warn.dynamicrules.sources.TransactionsSource;
+import com.flink.warn.dynamicrules.sources.LogSource;
 import com.flink.warn.entiy.ElasticsearchConfig;
 import com.flink.warn.entiy.WorkList;
 import com.flink.warn.sink.WorkListToMongodbSink;
@@ -70,14 +70,17 @@ import java.util.concurrent.TimeUnit;
 
 import static com.flink.warn.config.Parameters.*;
 
+/**
+ * --rule-source MONGODB --data-source KAFKA
+ */
 @Slf4j
 public class RulesEvaluator {
 
     private Config config;
 
     private static final String[] keyByFields = {"srcIp", "dstIp", "srcPort", "dstPort", "srcCountry", "dstCountry"
-            , "srcProProvince", "dstProProvince", "srcCity", "dstCity", "deviceIp", "logType", "eventType"
-            , "eventSubType", "eventName", "level", "protocol", "assetType", "assetSubType"};
+            , "srcProvince", "dstProvince", "srcCity", "dstCity", "deviceIp", "logType", "eventType"
+            , "eventSubType", "eventName", "level", "protocol"};
 
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
@@ -92,7 +95,7 @@ public class RulesEvaluator {
          */
         RulesSource.Type rulesSourceType = getRulesSourceType();
         boolean isLocal = config.get(LOCAL_EXECUTION);
-        String esFilePath = "/home/es.properties";
+        String esFilePath = config.get(ES_CONFIG_PATH);
         ElasticsearchConfig esConfig = ElasticsearchConfig.create(new PropertiesConfig(esFilePath));
         StreamExecutionEnvironment env = configureStreamExecutionEnvironment(rulesSourceType, isLocal);
 
@@ -111,7 +114,6 @@ public class RulesEvaluator {
                     @Override
                     public void processElement(JSONObject value, Context ctx, Collector<JSONObject> out) throws Exception {
                         out.collect(value);
-//                        ctx.output(Descriptors.statisticsTag, value);
                         OriginalEvent event = JSONObject.parseObject(value.toJSONString(), OriginalEvent.class);
                         ctx.output(Descriptors.statisticsTag, event);
                     }
@@ -183,7 +185,7 @@ public class RulesEvaluator {
         /**
          * 根据告警生成工单，写入MongoDB
          */
-        streamOperator.getSideOutput(Descriptors.workListTag)
+        warnStream.getSideOutput(Descriptors.workListTag)
                 .addSink(new WorkListToMongodbSink())
                 .name("work_list");
 
@@ -191,23 +193,24 @@ public class RulesEvaluator {
         /**
          * 事件聚合
          */
-        DataStream<JSONObject> statisticsStream = streamOperator.getSideOutput(Descriptors.eventTag);
+//        DataStream<JSONObject> statisticsStream = streamOperator.getSideOutput(Descriptors.eventTag);
 //        statisticsStream.print().setParallelism(1);
 //        statisticsStream.keyBy();
+
 
         env.execute("Fraud Detection Engine");
     }
 
     private DataStream<JSONObject> getLogStream(StreamExecutionEnvironment env) {
         // Data stream setup
-        SourceFunction<String> logSource = TransactionsSource.createTransactionsSource(config);
+        SourceFunction<String> logSource = LogSource.createTransactionsSource(config);
         int sourceParallelism = config.get(SOURCE_PARALLELISM);
         DataStream<String> logStringsStream =
                 env.addSource(logSource)
                         .name("Log Source")
                         .setParallelism(sourceParallelism);
         DataStream<JSONObject> logStream =
-                TransactionsSource.stringsStreamToJSONObject(logStringsStream);
+                LogSource.stringsStreamToJSONObject(logStringsStream);
         SimpleBoundedOutOfOrdernessTimestampExtractor<JSONObject> extractor = new SimpleBoundedOutOfOrdernessTimestampExtractor<>(config.get(OUT_OF_ORDERNESS));
         return logStream.assignTimestampsAndWatermarks(extractor);
     }
@@ -215,8 +218,14 @@ public class RulesEvaluator {
     private DataStream<WarnRule> getRulesUpdateStream(StreamExecutionEnvironment env) throws IOException {
         RulesSource.Type rulesSourceEnumType = getRulesSourceType();
         if (rulesSourceEnumType == RulesSource.Type.MONGODB) {
-            return env.addSource(new MongoDBStreamFunction("warn_rule", WarnRule.class))
-                    .name(rulesSourceEnumType.getName()).setParallelism(1);
+            return env.addSource(new MongodbSourceFunction("warn_rule"))
+                    .name(rulesSourceEnumType.getName()).assignTimestampsAndWatermarks(
+                            new BoundedOutOfOrdernessTimestampExtractor<WarnRule>(Time.of(0, TimeUnit.MILLISECONDS)) {
+                                @Override
+                                public long extractTimestamp(WarnRule element) {
+                                    return Long.MAX_VALUE;
+                                }
+                            });
         }
         SourceFunction<String> rulesSource = RulesSource.createRulesSource(config);
         DataStream<String> rulesStrings =
@@ -243,7 +252,7 @@ public class RulesEvaluator {
         env.getCheckpointConfig().setCheckpointInterval(config.get(CHECKPOINT_INTERVAL));
         env.getCheckpointConfig()
                 .setMinPauseBetweenCheckpoints(config.get(MIN_PAUSE_BETWEEN_CHECKPOINTS));
-
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
         configureRestartStrategy(env, rulesSourceEnumType);
         return env;
     }

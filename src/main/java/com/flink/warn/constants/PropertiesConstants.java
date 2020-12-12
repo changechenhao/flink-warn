@@ -22,6 +22,8 @@ public class PropertiesConstants {
 
     public static final String SOCKET_TIMEOUT = "mongodb.socketTimeout";
 
+    public static final String MAX_CONNECTION_IDLET_IME = "mongodb.maxConnectionIdleTime";
+
     public static final String MAX_WAIT_TIME = "mongodb.maxWaitTime";
 
     public static final String THREADS_ALLOWED = "mongodb.threadsAllowed";

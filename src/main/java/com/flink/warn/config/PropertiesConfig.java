@@ -59,5 +59,7 @@ public class PropertiesConfig {
                 .orElseGet(() -> 0L);
     }
 
-
+    public Properties getProperties() {
+        return properties;
+    }
 }

@@ -39,7 +39,7 @@ public class WarnRule {
   private String ruleId;
   private String warnType;
   private String warnName;
-  private Integer level;
+  private String level;
   private RuleState ruleState;
   private List<String> groupingKeyNames;
   private List<String> defaultGroupingKeyNames;
@@ -54,6 +54,10 @@ public class WarnRule {
 
   public Long getWindowMillis() {
     return Time.minutes(this.windowMinutes).toMilliseconds();
+  }
+
+  public Long getWindowSecond() {
+    return Time.minutes(this.windowMinutes).toMilliseconds() / 1000;
   }
 
   /**
@@ -90,6 +94,22 @@ public class WarnRule {
     AVG,
     MIN,
     MAX
+  }
+
+  public enum WarnLevel {
+    INFO(0, "信息"),
+    LOW(1, "低危"),
+    MIDDLE(2, "中危"),
+    HIGH(3, "高危");
+
+    private int code;
+
+    private String message;
+
+    WarnLevel(int code, String message) {
+      this.code = code;
+      this.message = message;
+    }
   }
 
   public enum LimitOperatorType {

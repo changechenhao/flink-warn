@@ -21,10 +21,7 @@ package com.flink.warn.dynamicrules.sources;
 import com.alibaba.fastjson.JSONObject;
 import com.flink.warn.config.Config;
 import com.flink.warn.dynamicrules.KafkaUtils;
-import com.flink.warn.dynamicrules.entity.Transaction;
 import com.flink.warn.dynamicrules.functions.JSONObjectGenerator;
-import com.flink.warn.dynamicrules.functions.JsonDeserializer;
-import com.flink.warn.dynamicrules.functions.TimeStamper;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -34,40 +31,30 @@ import org.apache.flink.util.Collector;
 
 import java.util.Properties;
 
-import static com.flink.warn.config.Parameters.*;
+import static com.flink.warn.config.Parameters.RECORDS_PER_SECOND;
+import static com.flink.warn.config.Parameters.DATA_SOURCE;
 
-public class TransactionsSource {
+public class LogSource {
 
   public static SourceFunction<String> createTransactionsSource(Config config) {
 
-    String sourceType = config.get(TRANSACTIONS_SOURCE);
-    TransactionsSource.Type transactionsSourceType =
-        TransactionsSource.Type.valueOf(sourceType.toUpperCase());
+    String sourceType = config.get(DATA_SOURCE);
+    LogSource.Type transactionsSourceType =
+        LogSource.Type.valueOf(sourceType.toUpperCase());
 
     int transactionsPerSecond = config.get(RECORDS_PER_SECOND);
 
     switch (transactionsSourceType) {
       case KAFKA:
         Properties kafkaProps = KafkaUtils.initConsumerProperties(config);
-        String transactionsTopic = config.get(DATA_TOPIC);
+        String topic = kafkaProps.getProperty("kafka.toptic");
         FlinkKafkaConsumer010<String> kafkaConsumer =
-            new FlinkKafkaConsumer010<>(transactionsTopic, new SimpleStringSchema(), kafkaProps);
+            new FlinkKafkaConsumer010<>(topic, new SimpleStringSchema(), kafkaProps);
         kafkaConsumer.setStartFromLatest();
         return kafkaConsumer;
       default:
-//        return new JsonGeneratorWrapper<>(new TransactionsGenerator(transactionsPerSecond));
         return new JSONObjectGenerator(transactionsPerSecond);
     }
-  }
-
-  public static DataStream<Transaction> stringsStreamToTransactions(
-      DataStream<String> transactionStrings) {
-    return transactionStrings
-        .flatMap(new JsonDeserializer<Transaction>(Transaction.class))
-        .returns(Transaction.class)
-        .flatMap(new TimeStamper<Transaction>())
-        .returns(Transaction.class)
-        .name("Transactions Deserialization");
   }
 
   public static DataStream<JSONObject> stringsStreamToJSONObject(

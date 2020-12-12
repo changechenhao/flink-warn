@@ -23,20 +23,19 @@ public class WorkListToMongodbSink  extends RichSinkFunction<WorkList> {
 
     @Override
     public void open(Configuration parameters) throws Exception {
-        super.open(parameters);
-        mongoDBClient = MongoDBClient.getInstance();
-        if(mongoDBClient.getMongoClient() == null){
-            mongoDBClient.init();
+        if(mongoDBClient == null){
+            this.mongoDBClient = MongoDBClient.getInstance();
+            this.mongoDBClient.init();
+            DB dataDb = mongoDBClient.getDataDb();
+            Jongo jongo = new Jongo(dataDb);
+            this.collection = jongo.getCollection(table);
         }
-        DB dataDb = mongoDBClient.getDataDb();
-        Jongo jongo = new Jongo(dataDb);
-        this.collection = jongo.getCollection(this.table);
+
     }
 
     @Override
     public void close() throws Exception {
-        super.close();
-        MongoDBClient.getInstance().close();
+
     }
 
     @Override
