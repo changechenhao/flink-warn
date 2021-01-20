@@ -78,15 +78,15 @@ public class Parameters {
   /**
    * source
    */
-  public static final Param<Integer> SOURCE_PARALLELISM = Param.integer("source-parallelism", 2);
+  public static final Param<Integer> SOURCE_PARALLELISM = Param.integer("source-parallelism", 4);
 
   /**
    * checkpoint
    */
   public static final Param<Integer> CHECKPOINT_INTERVAL =
-      Param.integer("checkpoint-interval", 60_000_0);
+      Param.integer("checkpoint-interval", 60_000);
   public static final Param<Integer> MIN_PAUSE_BETWEEN_CHECKPOINTS =
-      Param.integer("min-pause-btwn-checkpoints", 60_000_0);
+      Param.integer("min-pause-btwn-checkpoints", 60_000);
   public static final Param<Integer> OUT_OF_ORDERNESS = Param.integer("out-of-orderdness", 500);
 
 

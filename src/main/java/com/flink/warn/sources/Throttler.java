@@ -59,22 +59,23 @@ final class Throttler {
   }
 
   void throttle() throws InterruptedException {
-    if (throttleBatchSize == -1) {
-      return;
-    }
-    if (++currentBatch != throttleBatchSize) {
-      return;
-    }
-    currentBatch = 0;
-
-    final long now = System.nanoTime();
-    final int millisRemaining = (int) ((endOfNextBatchNanos - now) / 1_000_000);
-
-    if (millisRemaining > 0) {
-      endOfNextBatchNanos += nanosPerBatch;
-      Thread.sleep(millisRemaining);
-    } else {
-      endOfNextBatchNanos = now + nanosPerBatch;
-    }
+//    if (throttleBatchSize == -1) {
+//      return;
+//    }
+//    if (++currentBatch != throttleBatchSize) {
+//      return;
+//    }
+//    currentBatch = 0;
+//
+//    final long now = System.nanoTime();
+//    final int millisRemaining = (int) ((endOfNextBatchNanos - now) / 1_000_000);
+//
+//    if (millisRemaining > 0) {
+//      endOfNextBatchNanos += nanosPerBatch;
+//      Thread.sleep(millisRemaining);
+//    } else {
+//      endOfNextBatchNanos = now + nanosPerBatch;
+//    }
+//    Thread.sleep(20);
   }
 }

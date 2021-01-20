@@ -35,7 +35,7 @@ import static com.flink.warn.config.Parameters.SOCKET_PORT;
 
 public class RulesSource {
 
-  private static final int RULES_STREAM_PARALLELISM = 1;
+  private static final int RULES_STREAM_PARALLELISM = 4;
 
   public static SourceFunction<String> createRulesSource(Config config) throws IOException {
 
@@ -64,6 +64,7 @@ public class RulesSource {
                 return Long.MAX_VALUE;
               }
             });
+
   }
 
   public enum Type {

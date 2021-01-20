@@ -72,6 +72,7 @@ import static com.flink.warn.config.Parameters.*;
 
 /**
  * --rule-source MONGODB --data-source KAFKA
+ * --rule-source MONGODB --data-source GENERATOR
  */
 @Slf4j
 public class RulesEvaluator {
@@ -128,19 +129,21 @@ public class RulesEvaluator {
                 .process(new DynamicKeyFunction())
                 .uid("DynamicKeyFunction")
                 .name("Dynamic Partitioning Function")
+                .setParallelism(4)
                 .keyBy((keyed) -> keyed.getKey())
                 .connect(rulesStream)
                 .process(new DynamicAlertFunction())
                 .uid("DynamicAlertFunction")
-                .name("Dynamic WarnRule Evaluation Function");
+                .name("Dynamic WarnRule Evaluation Function")
+                .setParallelism(config.get(SOURCE_PARALLELISM));
         ElasticSearchSinkUtil.addSink(esConfig, "es-warn", warnStream,
                 (JSONObject result, RuntimeContext runtimeContext, RequestIndexer requestIndexer) -> {
                     requestIndexer.add(Requests.indexRequest()
                             .index("warn")
                             .source(JSONObject.toJSONBytes(result), XContentType.JSON));
                 });
-        DataStream<String> allRuleEvaluations = warnStream.getSideOutput(Descriptors.allRuleEvaluationsTag);
-        allRuleEvaluations.print().setParallelism(1).name("WarnRule Evaluation Sink");
+//        DataStream<String> allRuleEvaluations = warnStream.getSideOutput(Descriptors.allRuleEvaluationsTag);
+//        allRuleEvaluations.print().setParallelism(1).name("WarnRule Evaluation Sink");
 
 
         /**
@@ -187,7 +190,8 @@ public class RulesEvaluator {
          */
         warnStream.getSideOutput(Descriptors.workListTag)
                 .addSink(new WorkListToMongodbSink())
-                .name("work_list");
+                .name("work_list")
+                .setParallelism(2);
 
 
         /**

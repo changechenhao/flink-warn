@@ -47,7 +47,7 @@ public class LogSource {
     switch (transactionsSourceType) {
       case KAFKA:
         Properties kafkaProps = KafkaUtils.initConsumerProperties(config);
-        String topic = kafkaProps.getProperty("kafka.toptic");
+        String topic = kafkaProps.getProperty("toptic");
         FlinkKafkaConsumer010<String> kafkaConsumer =
             new FlinkKafkaConsumer010<>(topic, new SimpleStringSchema(), kafkaProps);
         kafkaConsumer.setStartFromLatest();

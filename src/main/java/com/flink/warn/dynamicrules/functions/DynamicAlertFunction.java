@@ -46,6 +46,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.flink.warn.dynamicrules.RulesEvaluator.Descriptors.workListTag;
 import static com.flink.warn.dynamicrules.functions.ProcessingUtils.addToStateValuesSet;
@@ -69,6 +70,8 @@ public class DynamicAlertFunction
 //  private static int CLEAR_STATE_COMMAND_KEY = Integer.MIN_VALUE + 1;
 
     private transient MapState<Long, Set<BigDecimal>> windowState;
+
+    private volatile AtomicLong atomicLong = new AtomicLong(1);
 
 
     private Meter alertMeter;
@@ -95,7 +98,7 @@ public class DynamicAlertFunction
     public void processElement(
             Keyed<JSONObject, String, String> value, ReadOnlyContext ctx, Collector<JSONObject> out)
             throws Exception {
-        ctx.output(RulesEvaluator.Descriptors.allRuleEvaluationsTag, value.getKey());
+        ctx.output(RulesEvaluator.Descriptors.allRuleEvaluationsTag, atomicLong.getAndIncrement() + "-----" +value.getKey());
         Long startTime = value.getStartTime();
         BigDecimal aggregateValue = value.getAggregateValue() == null ? BigDecimal.ONE
                 : new BigDecimal(value.getAggregateValue());
@@ -243,6 +246,10 @@ public class DynamicAlertFunction
             String mark = UUID.randomUUID().toString();
             jsonObject.put("mark", mark);
             jsonObject.put("createTime", DateUtil.formatTime(System.currentTimeMillis(), formatter));
+            jsonObject.put("warnName", warnRule.getWarnName());
+            jsonObject.put("warnType", warnRule.getWarnType());
+            jsonObject.put("level", warnRule.getLevel());
+            jsonObject.put("handleStatus", 0);
             result.entrySet().stream().forEach(item -> {
                 jsonObject.put(item.getKey(), item.getValue());
             });

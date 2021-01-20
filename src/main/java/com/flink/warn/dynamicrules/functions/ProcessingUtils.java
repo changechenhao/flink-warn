@@ -29,6 +29,9 @@ class ProcessingUtils {
 
     static void handleRuleBroadcast(WarnRule warnRule, BroadcastState<String, WarnRule> broadcastState)
             throws Exception {
+        if(warnRule.getRuleState() == null){
+            return;
+        }
         switch (warnRule.getRuleState()) {
             case ACTIVE:
             case PAUSE:
@@ -36,6 +39,8 @@ class ProcessingUtils {
                 break;
             case DELETE:
                 broadcastState.remove(warnRule.getRuleId());
+                break;
+            default:
                 break;
         }
     }

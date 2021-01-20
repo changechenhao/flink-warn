@@ -55,7 +55,7 @@ public class MongoDBClient {
         int connectTimeout = config.getIntValue(CONNECT_TIMEOUT);
         int maxWaitTime = config.getIntValue(MAX_WAIT_TIME);
         int connectionsPerHost = config.getIntValue(CONNECTIONS_PERHOST);
-        int threadsAllowed = 20;
+        int threadsAllowed = 100;
         int socketTimeout = config.getIntValue(SOCKET_TIMEOUT);
         int maxConnectionIdleTime = config.getIntValue(MAX_CONNECTION_IDLET_IME);
 

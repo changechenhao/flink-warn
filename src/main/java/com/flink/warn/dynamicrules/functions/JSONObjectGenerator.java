@@ -26,7 +26,6 @@ public class JSONObjectGenerator extends BaseGenerator<String> {
         eventNames.add("IPS攻击");
         eventNames.add("异常包攻击");
         eventNames.add("WEB攻击");
-
     }
 
     public JSONObjectGenerator(int maxRecordsPerSecond) {
@@ -47,13 +46,12 @@ public class JSONObjectGenerator extends BaseGenerator<String> {
         result.put("startTime", System.currentTimeMillis());
         result.put("eventName", eventName(1));
         result.put("tag", 1);
-
         result.put("startTime", System.currentTimeMillis());
         return result.toJSONString();
     }
 
     private String generatorIp(SplittableRandom rnd){
-        return "192.168.2." + rnd.nextInt(3);
+        return "192.168." + rnd.nextInt(255) + "." + rnd.nextInt(255);
     }
 
     private String logType(long id){
